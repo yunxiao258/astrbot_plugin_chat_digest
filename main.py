@@ -21,6 +21,10 @@ except Exception:  # pragma: no cover
     get_astrbot_data_path = None
 
 from .card_renderer import render_digest_card
+try:
+    from .hub_bridge import HUB_PROTOCOL_VERSION, emit_hub_event
+except ImportError:
+    from hub_bridge import HUB_PROTOCOL_VERSION, emit_hub_event
 from .storage import DigestStore
 from .summarizer import format_digest_text, generate_chat_digest, summarize_webpage
 from .web_fetcher import UnsafeURLError, WebFetcher, extract_urls
@@ -31,7 +35,7 @@ PLUGIN_DESC = (
     "群聊/私聊记忆与智能摘要助手：LLM 摘要（自动降级本地规则）、精华收藏、决议/待办追踪、"
     "网页链接静默收录与摘要、RSS 订阅汇总、每日定时日报、Markdown/JSON 导入导出与摘要长图"
 )
-PLUGIN_VERSION = "1.0.0"
+PLUGIN_VERSION = "1.1.0"
 PLUGIN_REPO = "https://github.com/yunxiao258/astrbot_plugin_chat_digest"
 
 _CMD_PREFIX_RE = re.compile(r"^[\\/／]?\s*(?:摘要|digest|纪要)\b\s*(.*)$", re.IGNORECASE | re.S)
@@ -101,6 +105,8 @@ def _split_csv(raw: str) -> set[str]:
 @register(PLUGIN_NAME, PLUGIN_AUTHOR, PLUGIN_DESC, PLUGIN_VERSION, repo=PLUGIN_REPO)
 class ChatDigestPlugin(Star):
     """群聊/私聊记忆与摘要助手主插件类。"""
+
+    HUB_PROTOCOL_VERSION = HUB_PROTOCOL_VERSION
 
     def __init__(
         self,
@@ -311,7 +317,7 @@ class ChatDigestPlugin(Star):
                     umo=umo,
                     timeout=_cfg_int(self.config, "llm_timeout_seconds", 45, min_val=5),
                 )
-                return self.store.add_link(
+                rec = self.store.add_link(
                     umo=umo,
                     url=page.url,
                     title=page.title,
@@ -319,6 +325,8 @@ class ChatDigestPlugin(Star):
                     summary=summary,
                     shared_by=shared_by,
                 )
+                emit_hub_event(PLUGIN_NAME, "digest.link_captured", {"umo": umo, "url": rec["url"], "title": rec["title"], "shared_by": shared_by}, self.context)
+                return rec
         except Exception as exc:
             logger.debug(f"【{PLUGIN_NAME}】静默抓取链接失败 ({url}): {exc}")
             return None
@@ -378,6 +386,7 @@ class ChatDigestPlugin(Star):
             )
             saved = self.store.save_digest(umo, digest)
             text = format_digest_text(saved, title="每日群聊记忆日报")
+            emit_hub_event(PLUGIN_NAME, "digest.created", {"umo": umo, "date": today, "summary": saved.get("summary", ""), "text": text, "message_count": saved.get("message_count", 0)}, self.context)
 
             sub_cfg = self.store.get_subscription(umo)
             want_card = (
@@ -496,6 +505,7 @@ class ChatDigestPlugin(Star):
         )
         saved = self.store.save_digest(umo, digest)
         text = format_digest_text(saved)
+        emit_hub_event(PLUGIN_NAME, "digest.created", {"umo": umo, "date": date_label, "summary": saved.get("summary", ""), "text": text, "message_count": saved.get("message_count", 0)}, self.context)
 
         if want_card and _cfg_bool(self.config, "enable_card_image", True):
             card_path = os.path.join(self.data_dir, "exports", f"card_{saved['id']}.png")
@@ -526,6 +536,7 @@ class ChatDigestPlugin(Star):
             tags = re.findall(r"#([^\s#]{1,20})", body)
             clean_text = re.sub(r"#[^\s#]{1,20}", "", body).strip() or body
             item = self.store.add_highlight(umo, clean_text, nick, tags=tags)
+            emit_hub_event(PLUGIN_NAME, "digest.highlight_added", {"umo": umo, "id": item["id"], "text": item["text"], "added_by": nick}, self.context)
             return self._plain(event, f"✅ 已收藏精华 [{item['id']}]：{item['text']}")
         if act in ("删除", "删", "del", "rm"):
             if not self._is_admin(event):
@@ -563,6 +574,7 @@ class ChatDigestPlugin(Star):
             assignee = m.group(1) if m else ""
             title = re.sub(r"@[^\s@]{1,30}", "", body).strip() or body
             item = self.store.add_todo(umo, title, nick, assignee=assignee)
+            emit_hub_event(PLUGIN_NAME, "digest.todo_added", {"umo": umo, "id": item["id"], "title": item["title"], "assignee": assignee, "created_by": nick}, self.context)
             who = f"（负责：@{assignee}）" if assignee else ""
             return self._plain(event, f"✅ 已新增待办 [{item['id']}]：{item['title']}{who}")
         if act in ("完成", "done", "ok"):
@@ -878,3 +890,50 @@ class ChatDigestPlugin(Star):
             "• `/摘要 导入 [--replace] <JSON>`：导入恢复记忆档案（管理员）\n"
             "• `/摘要 状态` / `/摘要 清空 确认`：查看状态或清空本会话数据"
         )
+
+    # ==================== 插件生态中枢标准联动协议 ====================
+
+    def hub_status(self) -> dict[str, Any]:
+        umos = set(self.store._messages.keys()) | set(self.store._memories.keys()) | set(self.store._digests.keys())
+        total_msgs = sum(self.store.count_messages(u) for u in umos)
+        total_digests = sum(len(self.store._digests.get(u, []) or []) for u in umos)
+        total_hl = sum(len(self.store.list_highlights(u, limit=500)) for u in umos)
+        total_todos = sum(len(self.store.list_todos(u, include_done=False)) for u in umos)
+        return {
+            "version": PLUGIN_VERSION,
+            "status": "online",
+            "metrics": {"会话数": len(umos), "消息缓存": total_msgs, "摘要档案": total_digests, "精华": total_hl, "待办": total_todos},
+            "actions": ["get_overview", "add_highlight", "add_todo", "generate_digest"],
+        }
+
+    async def hub_action(self, action: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        p = params or {}
+        if action == "get_overview":
+            umos = sorted(set(self.store._messages.keys()) | set(self.store._memories.keys()) | set(self.store._digests.keys()))
+            return {"ok": True, "data": {u: self.store.session_stats(u) for u in umos[:30]}}
+        if action == "add_highlight":
+            umo = str(p.get("umo", "")).strip()
+            text = str(p.get("text", "")).strip()
+            if not umo or not text:
+                return {"ok": False, "error": "缺少 umo 或 text"}
+            item = self.store.add_highlight(umo, text, str(p.get("added_by", "hub")), tags=list(p.get("tags") or []))
+            return {"ok": True, "data": item}
+        if action == "add_todo":
+            umo = str(p.get("umo", "")).strip()
+            title = str(p.get("title", "")).strip()
+            if not umo or not title:
+                return {"ok": False, "error": "缺少 umo 或 title"}
+            item = self.store.add_todo(umo, title, str(p.get("created_by", "hub")), assignee=str(p.get("assignee", "")))
+            return {"ok": True, "data": item}
+        if action == "generate_digest":
+            umo = str(p.get("umo", "")).strip()
+            if not umo:
+                return {"ok": False, "error": "缺少 umo"}
+            msgs = self.store.get_messages(umo, limit=_cfg_int(self.config, "default_message_limit", 120, min_val=5))
+            if not msgs:
+                return {"ok": False, "error": "该会话暂无消息可生成摘要"}
+            today = datetime.now().strftime("%Y-%m-%d")
+            digest = await generate_chat_digest(self.context, msgs, self.store.list_links(umo, limit=10), today, _cfg_bool(self.config, "enable_llm_summary", True), _cfg_str(self.config, "provider_id", ""), umo, _cfg_int(self.config, "llm_timeout_seconds", 45, min_val=5))
+            saved = self.store.save_digest(umo, digest)
+            return {"ok": True, "data": saved}
+        return {"ok": False, "error": f"不支持的动作：{action}"}
