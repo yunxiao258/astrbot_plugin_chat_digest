@@ -1,0 +1,109 @@
+{
+  "enabled": {
+    "description": "是否启用插件的消息收集与自动收录功能",
+    "type": "bool",
+    "default": true
+  },
+  "provider_id": {
+    "description": "用于生成智能摘要的 AstrBot LLM Provider ID（留空则自动使用当前会话默认 Provider）",
+    "type": "string",
+    "default": "",
+    "hint": "在 AstrBot 服务提供商列表中查看 ID；若为空且默认 Provider 不可用，将自动降级为本地规则摘要"
+  },
+  "enable_llm_summary": {
+    "description": "是否优先使用 LLM 生成摘要与网页总结（关闭或调用失败时自动降级本地规则）",
+    "type": "bool",
+    "default": true
+  },
+  "llm_timeout_seconds": {
+    "description": "单次 LLM 摘要请求超时时间（秒）",
+    "type": "int",
+    "default": 45
+  },
+  "default_message_limit": {
+    "description": "执行 /摘要 未指定条数时默认纳入分析的最近消息条数",
+    "type": "int",
+    "default": 120
+  },
+  "max_messages_per_day": {
+    "description": "每个会话单日最多保留的聊天记录条数（超出丢弃最旧）",
+    "type": "int",
+    "default": 500
+  },
+  "retention_days": {
+    "description": "聊天记录与历史摘要保留天数（超出自动清理）",
+    "type": "int",
+    "default": 30
+  },
+  "auto_capture_links": {
+    "description": "是否自动静默抓取群聊/私聊中分享的网页链接标题与摘要并收录（不主动回复刷屏）",
+    "type": "bool",
+    "default": true
+  },
+  "proxy": {
+    "description": "网页与 RSS 抓取使用的代理地址（如 http://127.0.0.1:7890 或 socks5://127.0.0.1:1080，留空则沿用系统环境变量代理）",
+    "type": "string",
+    "default": ""
+  },
+  "http_timeout_seconds": {
+    "description": "网页与 RSS 抓取请求超时时间（秒）",
+    "type": "int",
+    "default": 15
+  },
+  "max_fetch_bytes": {
+    "description": "单次网页/RSS 下载最大字节数（默认 524288，即 512KB）",
+    "type": "int",
+    "default": 524288
+  },
+  "allow_private_urls": {
+    "description": "是否允许抓取内网/回环地址（默认关闭以防 SSRF 风险）",
+    "type": "bool",
+    "default": false
+  },
+  "daily_push_enabled": {
+    "description": "是否启用每日定时摘要推送巡检任务",
+    "type": "bool",
+    "default": false
+  },
+  "daily_push_time": {
+    "description": "每日定时摘要推送时间（24 小时制 HH:MM，非法值回退 22:00）",
+    "type": "string",
+    "default": "22:00"
+  },
+  "daily_push_umos": {
+    "description": "固定定时推送的目标会话 UMO 列表（英文逗号分隔；也可在群内用 /摘要 订阅 on 动态订阅）",
+    "type": "string",
+    "default": "",
+    "hint": "示例：default:GroupMessage:1234567890"
+  },
+  "daily_push_min_messages": {
+    "description": "定时日报触发的当日最少消息数（低于此值跳过推送避免空日报）",
+    "type": "int",
+    "default": 5
+  },
+  "daily_push_card": {
+    "description": "定时日报是否附带 Pillow 摘要长图（未安装 Pillow 时自动降级纯文本）",
+    "type": "bool",
+    "default": false
+  },
+  "enable_card_image": {
+    "description": "是否允许生成 Pillow 摘要长图卡片（用于 --card 或 /摘要 导出 card）",
+    "type": "bool",
+    "default": true
+  },
+  "admin_umos": {
+    "description": "额外管理员会话 UMO 白名单（英文逗号分隔；同时自动认可 AstrBot 平台管理员）",
+    "type": "string",
+    "default": ""
+  },
+  "admin_user_ids": {
+    "description": "额外管理员用户 ID 白名单（英文逗号分隔，如 1234567890）",
+    "type": "string",
+    "default": ""
+  },
+  "rss_max_items": {
+    "description": "单个 RSS 源每次拉取展示的最大条目数",
+    "type": "int",
+    "default": 5
+  }
+}
