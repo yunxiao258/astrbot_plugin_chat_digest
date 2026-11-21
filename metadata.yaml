@@ -13,6 +13,6 @@ help: |
   - /摘要 订阅 [on|off|状态]：开关每日定时日报推送（管理员）
   - /摘要 导出 [md|json|card] / 导入 <JSON>：导出档案/摘要长图或导入恢复（管理员）
   - /摘要 状态 / 清空 确认 / 帮助：查看运行状态、清空会话数据或查看完整帮助
-version: 1.1.0
+version: 1.1.1
 author: 云晓
 repo: https://github.com/yunxiao258/astrbot_plugin_chat_digest

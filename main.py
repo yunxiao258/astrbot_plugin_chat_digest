@@ -35,7 +35,7 @@ PLUGIN_DESC = (
     "群聊/私聊记忆与智能摘要助手：LLM 摘要（自动降级本地规则）、精华收藏、决议/待办追踪、"
     "网页链接静默收录与摘要、RSS 订阅汇总、每日定时日报、Markdown/JSON 导入导出与摘要长图"
 )
-PLUGIN_VERSION = "1.1.0"
+PLUGIN_VERSION = "1.1.1"
 PLUGIN_REPO = "https://github.com/yunxiao258/astrbot_plugin_chat_digest"
 
 _CMD_PREFIX_RE = re.compile(r"^[\\/／]?\s*(?:摘要|digest|纪要)\b\s*(.*)$", re.IGNORECASE | re.S)

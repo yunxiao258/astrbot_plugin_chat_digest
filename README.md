@@ -82,6 +82,9 @@ python test_chat_digest.py
 
 ## 更新记录
 
+### v1.1.1
+- 优化高频消息采集落盘性能：移除每条消息同步 `os.fsync()` 阻塞（保留原子 `os.replace`，卸载全量落盘仍强同步）；清理停用词重复项
+
 ### v1.1.0
 - 接入插件生态中枢标准联动协议（`HUB_PROTOCOL_VERSION = 1`、`hub_status` / `hub_action` 与跨插件事件上报），支持待办自动同步备忘录、摘要自动抄送邮件及接收运维/新闻/天气/问答归档
 

@@ -11,16 +11,17 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 
-def atomic_write_json(path: str, data: Any) -> None:
-    """原子写入 JSON（临时文件 + os.replace），防止写入中断导致文件损坏。"""
+def atomic_write_json(path: str, data: Any, do_fsync: bool = False) -> None:
+    """原子写入 JSON（临时文件 + os.replace），防止写入中断导致文件损坏；高频路径默认不阻塞 fsync。"""
     parent = os.path.dirname(os.path.abspath(path))
     os.makedirs(parent, exist_ok=True)
     fd, tmp_path = tempfile.mkstemp(prefix=".tmp_", suffix=".json", dir=parent)
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-            f.flush()
-            os.fsync(f.fileno())
+            if do_fsync:
+                f.flush()
+                os.fsync(f.fileno())
         os.replace(tmp_path, path)
     except Exception:
         try:
@@ -103,10 +104,10 @@ class DigestStore:
         atomic_write_json(self.subs_path, self._subs)
 
     def save_all(self) -> None:
-        self._save_messages()
-        self._save_digests()
-        self._save_memories()
-        self._save_subs()
+        atomic_write_json(self.messages_path, self._messages, do_fsync=True)
+        atomic_write_json(self.digests_path, self._digests, do_fsync=True)
+        atomic_write_json(self.memories_path, self._memories, do_fsync=True)
+        atomic_write_json(self.subs_path, self._subs, do_fsync=True)
 
     def _ensure_memory_bucket(self, umo: str) -> dict[str, list[dict[str, Any]]]:
         bucket = self._memories.get(umo)
