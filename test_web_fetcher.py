@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """astrbot_plugin_chat_digest 网页/RSS 抓取模块单元测试（纯离线 mock，含 SSRF 与重定向校验）。"""
 
 import os
@@ -7,7 +6,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from astrbot_plugin_chat_digest.web_fetcher import (  # noqa: E402
+from astrbot_plugin_chat_digest.web_fetcher import (
     UnsafeURLError,
     WebFetcher,
     extract_urls,
@@ -71,7 +70,9 @@ class TestWebFetcher(unittest.TestCase):
             "另一篇 https://docs.python.org/3/。"
         )
         urls = extract_urls(text)
-        self.assertEqual(urls, ["https://example.com/post/1", "https://docs.python.org/3/"])
+        self.assertEqual(
+            urls, ["https://example.com/post/1", "https://docs.python.org/3/"]
+        )
 
     def test_ssrf_blocks_private_and_non_http(self) -> None:
         bad_urls = [
@@ -92,15 +93,24 @@ class TestWebFetcher(unittest.TestCase):
 
         # DNS 解析到内网 IP 也必须拦截
         with self.assertRaises(UnsafeURLError):
-            validate_url("https://rebind.example.com/", allow_private=False, resolver=_private_resolver)
+            validate_url(
+                "https://rebind.example.com/",
+                allow_private=False,
+                resolver=_private_resolver,
+            )
 
         # 公网正常放行
         self.assertEqual(
-            validate_url("https://example.com/ok", allow_private=False, resolver=_public_resolver),
+            validate_url(
+                "https://example.com/ok", allow_private=False, resolver=_public_resolver
+            ),
             "https://example.com/ok",
         )
         # 显式允许私网时放行 http://127.0.0.1
-        self.assertEqual(validate_url("http://127.0.0.1:8000", allow_private=True), "http://127.0.0.1:8000")
+        self.assertEqual(
+            validate_url("http://127.0.0.1:8000", allow_private=True),
+            "http://127.0.0.1:8000",
+        )
 
     def test_redirect_to_private_ip_blocked(self) -> None:
         sess = _FakeSession(
@@ -136,7 +146,11 @@ class TestWebFetcher(unittest.TestCase):
         self.assertNotIn("导航栏应被忽略", page.text)
 
     def test_fetch_page_proxy_and_byte_cap(self) -> None:
-        big_html = b"<html><head><title>T</title></head><body><p>" + (b"a" * 20000) + b"</p></body></html>"
+        big_html = (
+            b"<html><head><title>T</title></head><body><p>"
+            + (b"a" * 20000)
+            + b"</p></body></html>"
+        )
         sess = _FakeSession({"https://example.com/big": _FakeResponse(body=big_html)})
         fetcher = WebFetcher(
             proxy="http://127.0.0.1:7890",

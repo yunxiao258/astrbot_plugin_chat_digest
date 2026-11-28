@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """会话隔离的原子 JSON 持久化存储、全文检索与 Markdown/JSON 导入导出。"""
 
 from __future__ import annotations
@@ -272,7 +271,9 @@ class DigestStore:
     def delete_highlight(self, umo: str, item_id: str) -> bool:
         bucket = self._ensure_memory_bucket(umo)
         before = len(bucket["highlights"])
-        bucket["highlights"] = [x for x in bucket["highlights"] if x.get("id") != item_id]
+        bucket["highlights"] = [
+            x for x in bucket["highlights"] if x.get("id") != item_id
+        ]
         if len(bucket["highlights"]) != before:
             self._save_memories()
             return True
@@ -311,7 +312,9 @@ class DigestStore:
             items = [x for x in items if x.get("status") != "done"]
         return list(items)
 
-    def complete_todo(self, umo: str, todo_id: str, now: datetime | None = None) -> dict[str, Any] | None:
+    def complete_todo(
+        self, umo: str, todo_id: str, now: datetime | None = None
+    ) -> dict[str, Any] | None:
         bucket = self._ensure_memory_bucket(umo)
         for item in bucket["todos"]:
             if item.get("id") == todo_id:
@@ -332,11 +335,15 @@ class DigestStore:
 
     # ==================== 网页链接收录 ====================
 
-    def has_link_today(self, umo: str, url: str, target_date: str | None = None) -> bool:
+    def has_link_today(
+        self, umo: str, url: str, target_date: str | None = None
+    ) -> bool:
         bucket = self._ensure_memory_bucket(umo)
         day = target_date or _today_str()
         for item in bucket["links"]:
-            if item.get("url") == url and str(item.get("created_at", "")).startswith(day):
+            if item.get("url") == url and str(item.get("created_at", "")).startswith(
+                day
+            ):
                 return True
         return False
 
@@ -375,7 +382,9 @@ class DigestStore:
         bucket = self._ensure_memory_bucket(umo)
         items = bucket["links"]
         if target_date:
-            items = [x for x in items if str(x.get("created_at", "")).startswith(target_date)]
+            items = [
+                x for x in items if str(x.get("created_at", "")).startswith(target_date)
+            ]
         return list(reversed(items[-max(1, limit) :]))
 
     def delete_link(self, umo: str, link_id: str) -> bool:
@@ -428,7 +437,9 @@ class DigestStore:
 
     # ==================== 定时日报订阅 ====================
 
-    def set_subscription(self, umo: str, enabled: bool, send_card: bool | None = None) -> dict[str, Any]:
+    def set_subscription(
+        self, umo: str, enabled: bool, send_card: bool | None = None
+    ) -> dict[str, Any]:
         entry = self._subs.get(umo)
         if not isinstance(entry, dict):
             entry = {"enabled": False, "last_push_date": "", "send_card": False}
@@ -446,7 +457,9 @@ class DigestStore:
         return dict(entry)
 
     def list_subscribed_umos(self) -> list[str]:
-        return [u for u, v in self._subs.items() if isinstance(v, dict) and v.get("enabled")]
+        return [
+            u for u, v in self._subs.items() if isinstance(v, dict) and v.get("enabled")
+        ]
 
     def get_last_push_date(self, umo: str) -> str:
         entry = self._subs.get(umo)
@@ -464,10 +477,18 @@ class DigestStore:
 
     # ==================== 全文检索 ====================
 
-    def search(self, umo: str, keyword: str, limit: int = 12) -> dict[str, list[dict[str, Any]]]:
+    def search(
+        self, umo: str, keyword: str, limit: int = 12
+    ) -> dict[str, list[dict[str, Any]]]:
         kw = (keyword or "").strip().lower()
         if not kw:
-            return {"digests": [], "highlights": [], "todos": [], "links": [], "messages": []}
+            return {
+                "digests": [],
+                "highlights": [],
+                "todos": [],
+                "links": [],
+                "messages": [],
+            }
 
         bucket = self._ensure_memory_bucket(umo)
         hits_digests = []
@@ -495,7 +516,8 @@ class DigestStore:
         hits_todos = [
             t
             for t in reversed(bucket["todos"])
-            if kw in str(t.get("title", "")).lower() or kw in str(t.get("assignee", "")).lower()
+            if kw in str(t.get("title", "")).lower()
+            or kw in str(t.get("assignee", "")).lower()
         ][:limit]
 
         hits_links = [
@@ -508,7 +530,10 @@ class DigestStore:
 
         hits_msgs = []
         for m in reversed(self.get_messages(umo)):
-            if kw in str(m.get("text", "")).lower() or kw in str(m.get("nickname", "")).lower():
+            if (
+                kw in str(m.get("text", "")).lower()
+                or kw in str(m.get("nickname", "")).lower()
+            ):
                 hits_msgs.append(m)
                 if len(hits_msgs) >= limit:
                     break
@@ -557,7 +582,9 @@ class DigestStore:
             lines.append("")
             for h in data["highlights"]:
                 tag_s = f" `{'` `'.join(h['tags'])}`" if h.get("tags") else ""
-                lines.append(f"- [{h['id']}] {h['text']} — {h.get('added_by', '')} ({h.get('created_at', '')}){tag_s}")
+                lines.append(
+                    f"- [{h['id']}] {h['text']} — {h.get('added_by', '')} ({h.get('created_at', '')}){tag_s}"
+                )
             lines.append("")
 
         if data["todos"]:
@@ -573,7 +600,9 @@ class DigestStore:
             lines.append("## 收录链接")
             lines.append("")
             for lk in data["links"]:
-                lines.append(f"- [{lk['title']}]({lk['url']})（{lk.get('shared_by', '')}）")
+                lines.append(
+                    f"- [{lk['title']}]({lk['url']})（{lk.get('shared_by', '')}）"
+                )
                 if lk.get("summary"):
                     lines.append(f"  - 摘要：{lk['summary']}")
             lines.append("")
@@ -590,11 +619,17 @@ class DigestStore:
             lines.append("")
             for d in reversed(data["digests"][-15:]):
                 mode = "AI 智能" if d.get("mode") == "llm" else "本地规则"
-                lines.append(f"### {d.get('date', '')}（{mode}，{d.get('message_count', 0)} 条消息）")
+                lines.append(
+                    f"### {d.get('date', '')}（{mode}，{d.get('message_count', 0)} 条消息）"
+                )
                 lines.append("")
                 lines.append(str(d.get("summary", "")))
                 lines.append("")
-                for sec_title, key in (("核心要点", "highlights"), ("决议事项", "decisions"), ("提取待办", "todos")):
+                for sec_title, key in (
+                    ("核心要点", "highlights"),
+                    ("决议事项", "decisions"),
+                    ("提取待办", "todos"),
+                ):
                     vals = d.get(key) or []
                     if vals:
                         lines.append(f"**{sec_title}**")
@@ -609,7 +644,11 @@ class DigestStore:
         safe_key = "".join(c if c.isalnum() else "_" for c in umo)[-24:] or "session"
         ext = "json" if fmt == "json" else "md"
         path = os.path.join(self.exports_dir, f"digest_{safe_key}_{stamp}.{ext}")
-        content = self.export_session_json(umo) if ext == "json" else self.export_session_markdown(umo)
+        content = (
+            self.export_session_json(umo)
+            if ext == "json"
+            else self.export_session_markdown(umo)
+        )
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(content)
         return path
@@ -638,7 +677,9 @@ class DigestStore:
         def _merge(dst: list[dict[str, Any]], src: Any, required_key: str) -> int:
             if not isinstance(src, list):
                 return 0
-            existing_ids = {x.get("id") for x in dst if isinstance(x, dict) and x.get("id")}
+            existing_ids = {
+                x.get("id") for x in dst if isinstance(x, dict) and x.get("id")
+            }
             added = 0
             for item in src:
                 if not isinstance(item, dict) or not item.get(required_key):
@@ -653,10 +694,14 @@ class DigestStore:
                 added += 1
             return added
 
-        counts["highlights"] = _merge(bucket["highlights"], payload.get("highlights"), "text")
+        counts["highlights"] = _merge(
+            bucket["highlights"], payload.get("highlights"), "text"
+        )
         counts["todos"] = _merge(bucket["todos"], payload.get("todos"), "title")
         counts["links"] = _merge(bucket["links"], payload.get("links"), "url")
-        counts["rss_feeds"] = _merge(bucket["rss_feeds"], payload.get("rss_feeds"), "url")
+        counts["rss_feeds"] = _merge(
+            bucket["rss_feeds"], payload.get("rss_feeds"), "url"
+        )
         digests_dst = self._digests.setdefault(umo, [])
         if not isinstance(digests_dst, list):
             digests_dst = []
@@ -683,7 +728,9 @@ class DigestStore:
             "total_messages": self.count_messages(umo),
             "digests": len(self._digests.get(umo, []) or []),
             "highlights": len(bucket["highlights"]),
-            "open_todos": len([t for t in bucket["todos"] if t.get("status") != "done"]),
+            "open_todos": len(
+                [t for t in bucket["todos"] if t.get("status") != "done"]
+            ),
             "total_todos": len(bucket["todos"]),
             "links": len(bucket["links"]),
             "rss_feeds": len(bucket["rss_feeds"]),

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """astrbot_plugin_chat_digest 存储层单元测试：原子写、会话隔离、清理、检索与导入导出。"""
 
 import json
@@ -7,11 +6,15 @@ import shutil
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from astrbot_plugin_chat_digest.storage import DigestStore, atomic_write_json, safe_read_json  # noqa: E402
+from astrbot_plugin_chat_digest.storage import (
+    DigestStore,
+    atomic_write_json,
+    safe_read_json,
+)
 
 
 class TestDigestStore(unittest.TestCase):
@@ -36,7 +39,9 @@ class TestDigestStore(unittest.TestCase):
     def test_session_isolation_and_daily_cap(self) -> None:
         now = datetime(2026, 11, 21, 10, 0, 0)
         for i in range(25):
-            self.store.append_message("g:1", f"u{i}", f"用户{i}", f"第{i}条消息", now=now)
+            self.store.append_message(
+                "g:1", f"u{i}", f"用户{i}", f"第{i}条消息", now=now
+            )
         self.store.append_message("g:2", "u9", "乙", "二群消息", now=now)
         self.store.append_message("p:1", "u1", "甲", "私聊消息", now=now)
 
@@ -51,14 +56,20 @@ class TestDigestStore(unittest.TestCase):
         old_dt = datetime(2026, 11, 1, 9, 0, 0)
         cur_dt = datetime(2026, 11, 21, 9, 0, 0)
         self.store.append_message("g:1", "u1", "甲", "旧消息", now=old_dt)
-        self.store.save_digest("g:1", {"date": "2026-11-01", "summary": "旧摘要", "mode": "rule"})
+        self.store.save_digest(
+            "g:1", {"date": "2026-11-01", "summary": "旧摘要", "mode": "rule"}
+        )
         self.store.append_message("g:1", "u1", "甲", "新消息", now=cur_dt)
         self.assertEqual(self.store.get_messages("g:1", target_date="2026-11-01"), [])
-        self.assertEqual(len(self.store.get_messages("g:1", target_date="2026-11-21")), 1)
+        self.assertEqual(
+            len(self.store.get_messages("g:1", target_date="2026-11-21")), 1
+        )
         self.assertEqual(self.store.list_digests("g:1", target_date="2026-11-01"), [])
 
     def test_highlights_todos_links_rss_crud_and_reload(self) -> None:
-        h = self.store.add_highlight("g:1", "AstrBot 必须用 async initialize", "云晓", tags=["开发", "规范"])
+        h = self.store.add_highlight(
+            "g:1", "AstrBot 必须用 async initialize", "云晓", tags=["开发", "规范"]
+        )
         self.assertEqual(len(self.store.list_highlights("g:1")), 1)
         self.assertEqual(self.store.list_highlights("g:2"), [])
 
@@ -70,11 +81,29 @@ class TestDigestStore(unittest.TestCase):
         self.assertEqual(len(self.store.list_todos("g:1", include_done=True)), 1)
 
         now = datetime(2026, 11, 21, 12, 0, 0)
-        lk = self.store.add_link("g:1", "https://example.com/a", "示例文章", "摘录", "核心摘要", "甲", now=now)
-        self.assertTrue(self.store.has_link_today("g:1", "https://example.com/a", target_date="2026-11-21"))
-        self.assertFalse(self.store.has_link_today("g:2", "https://example.com/a", target_date="2026-11-21"))
+        lk = self.store.add_link(
+            "g:1",
+            "https://example.com/a",
+            "示例文章",
+            "摘录",
+            "核心摘要",
+            "甲",
+            now=now,
+        )
+        self.assertTrue(
+            self.store.has_link_today(
+                "g:1", "https://example.com/a", target_date="2026-11-21"
+            )
+        )
+        self.assertFalse(
+            self.store.has_link_today(
+                "g:2", "https://example.com/a", target_date="2026-11-21"
+            )
+        )
 
-        feed = self.store.add_rss_feed("g:1", "科技周刊", "https://example.com/feed.xml")
+        feed = self.store.add_rss_feed(
+            "g:1", "科技周刊", "https://example.com/feed.xml"
+        )
         self.assertEqual(len(self.store.list_rss_feeds("g:1")), 1)
 
         # 重载验证持久化且无残留
@@ -91,8 +120,18 @@ class TestDigestStore(unittest.TestCase):
         self.store.append_message("g:1", "u1", "云晓", "今天讨论了部署方案")
         self.store.add_highlight("g:1", "部署前要先跑 CI", "云晓", tags=["部署"])
         self.store.add_todo("g:1", "核对部署文档", "云晓", assignee="小张")
-        self.store.add_link("g:1", "https://example.com/deploy", "部署指南", "指南", "自动化部署最佳实践", "云晓")
-        self.store.save_digest("g:1", {"date": "2026-11-21", "summary": "围绕部署流程形成共识", "mode": "llm"})
+        self.store.add_link(
+            "g:1",
+            "https://example.com/deploy",
+            "部署指南",
+            "指南",
+            "自动化部署最佳实践",
+            "云晓",
+        )
+        self.store.save_digest(
+            "g:1",
+            {"date": "2026-11-21", "summary": "围绕部署流程形成共识", "mode": "llm"},
+        )
 
         hits = self.store.search("g:1", "部署")
         self.assertEqual(len(hits["messages"]), 1)
@@ -109,7 +148,15 @@ class TestDigestStore(unittest.TestCase):
         self.store.add_todo("g:1", "待办一", "甲", assignee="乙")
         self.store.add_link("g:1", "https://example.com", "标题", "摘录", "概要", "甲")
         self.store.add_rss_feed("g:1", "源一", "https://example.com/rss")
-        self.store.save_digest("g:1", {"date": "2026-11-21", "summary": "今日总结", "mode": "llm", "highlights": ["点1"]})
+        self.store.save_digest(
+            "g:1",
+            {
+                "date": "2026-11-21",
+                "summary": "今日总结",
+                "mode": "llm",
+                "highlights": ["点1"],
+            },
+        )
 
         md = self.store.export_session_markdown("g:1")
         self.assertIn("# 会话记忆与摘要档案", md)
@@ -123,7 +170,10 @@ class TestDigestStore(unittest.TestCase):
 
         # 导入到新会话
         counts = self.store.import_session_json("g:2", raw_json)
-        self.assertEqual(counts, {"highlights": 1, "todos": 1, "links": 1, "rss_feeds": 1, "digests": 1})
+        self.assertEqual(
+            counts,
+            {"highlights": 1, "todos": 1, "links": 1, "rss_feeds": 1, "digests": 1},
+        )
         # 重复合并导入自动按 ID 去重
         counts_dup = self.store.import_session_json("g:2", raw_json)
         self.assertEqual(sum(counts_dup.values()), 0)

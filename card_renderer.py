@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """可选 Pillow 摘要长图渲染器（支持中文字体自动回退；未安装 Pillow 时优雅返回 None）。"""
 
 from __future__ import annotations
@@ -101,7 +100,9 @@ def render_digest_card(
         ):
             vals = digest.get(key) or []
             if vals:
-                sections.append((heading, [f"{i}. {v}" for i, v in enumerate(vals[:6], 1)]))
+                sections.append(
+                    (heading, [f"{i}. {v}" for i, v in enumerate(vals[:6], 1)])
+                )
 
         # 预计算画布高度
         wrapped_sections: list[tuple[str, list[str]]] = []
@@ -132,7 +133,9 @@ def render_digest_card(
                 outline=(226, 232, 240),
                 width=1,
             )
-            draw.rectangle([(pad, cur_y + 12), (pad + 5, cur_y + 34)], fill=(37, 99, 235))
+            draw.rectangle(
+                [(pad, cur_y + 12), (pad + 5, cur_y + 34)], fill=(37, 99, 235)
+            )
             draw.text((pad + 18, cur_y + 10), heading, font=font_h, fill=(15, 23, 42))
             line_y = cur_y + 44
             for ln in lines:

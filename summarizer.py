@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """双引擎摘要生成器：AstrBot LLM（带防提示注入边界）+ 自动平滑降级本地规则引擎。"""
 
 from __future__ import annotations
@@ -11,22 +10,122 @@ from collections import Counter
 from typing import Any
 
 STOPWORDS = {
-    "的", "了", "是", "在", "我", "有", "和", "就", "不", "人", "都", "一", "一个",
-    "上", "也", "很", "到", "说", "要", "去", "你", "会", "着", "没有", "看", "好",
-    "自己", "这", "那", "啊", "吧", "呢", "吗", "哈", "哈哈", "哈哈哈", "嗯", "哦",
-    "可以", "就是", "然后", "但是", "因为", "所以", "如果", "什么", "怎么", "这个",
-    "那个", "一下", "大家", "觉得", "现在", "今天", "明天", "昨天", "已经", "还是",
-    "比较", "应该", "可能", "或者", "以及", "关于", "不是", "这样", "那样",
-    "the", "and", "for", "that", "this", "with", "from", "have", "are", "was",
-    "http", "https", "www", "com", "org", "net", "html",
+    "的",
+    "了",
+    "是",
+    "在",
+    "我",
+    "有",
+    "和",
+    "就",
+    "不",
+    "人",
+    "都",
+    "一",
+    "一个",
+    "上",
+    "也",
+    "很",
+    "到",
+    "说",
+    "要",
+    "去",
+    "你",
+    "会",
+    "着",
+    "没有",
+    "看",
+    "好",
+    "自己",
+    "这",
+    "那",
+    "啊",
+    "吧",
+    "呢",
+    "吗",
+    "哈",
+    "哈哈",
+    "哈哈哈",
+    "嗯",
+    "哦",
+    "可以",
+    "就是",
+    "然后",
+    "但是",
+    "因为",
+    "所以",
+    "如果",
+    "什么",
+    "怎么",
+    "这个",
+    "那个",
+    "一下",
+    "大家",
+    "觉得",
+    "现在",
+    "今天",
+    "明天",
+    "昨天",
+    "已经",
+    "还是",
+    "比较",
+    "应该",
+    "可能",
+    "或者",
+    "以及",
+    "关于",
+    "不是",
+    "这样",
+    "那样",
+    "the",
+    "and",
+    "for",
+    "that",
+    "this",
+    "with",
+    "from",
+    "have",
+    "are",
+    "was",
+    "http",
+    "https",
+    "www",
+    "com",
+    "org",
+    "net",
+    "html",
 }
 
 DECISION_PATTERNS = (
-    "决定", "确定", "拍板", "定下来", "就这么定", "统一用", "改用", "通过", "同意", "结论", "共识", "最终选",
+    "决定",
+    "确定",
+    "拍板",
+    "定下来",
+    "就这么定",
+    "统一用",
+    "改用",
+    "通过",
+    "同意",
+    "结论",
+    "共识",
+    "最终选",
 )
 
 TODO_PATTERNS = (
-    "待办", "todo", "记得", "需要", "安排", "负责", "明天前", "下周", "今晚", "稍后", "尽快", "别忘了", "要修", "要改",
+    "待办",
+    "todo",
+    "记得",
+    "需要",
+    "安排",
+    "负责",
+    "明天前",
+    "下周",
+    "今晚",
+    "稍后",
+    "尽快",
+    "别忘了",
+    "要修",
+    "要改",
 )
 
 
@@ -49,7 +148,7 @@ def extract_keywords(messages: list[dict[str, Any]], top_k: int = 6) -> list[str
                     counter[seg] += 1
             else:
                 for n in (2, 3):
-                    for i in range(0, len(seg) - n + 1):
+                    for i in range(len(seg) - n + 1):
                         gram = seg[i : i + n]
                         if gram not in STOPWORDS:
                             counter[gram] += 1
@@ -72,7 +171,9 @@ def build_rule_digest(
 ) -> dict[str, Any]:
     """纯本地规则摘要引擎：无 LLM 或 LLM 调用失败时的平滑降级结果。"""
     links = links or []
-    participants = Counter(str(m.get("nickname") or m.get("user_id") or "群友") for m in messages)
+    participants = Counter(
+        str(m.get("nickname") or m.get("user_id") or "群友") for m in messages
+    )
     keywords = extract_keywords(messages, top_k=6)
 
     decisions: list[str] = []
@@ -140,7 +241,7 @@ def build_rule_digest(
 
 def _strip_json_fence(raw: str) -> str:
     txt = (raw or "").strip()
-    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", txt, re.S | re.IGNORECASE)
+    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", txt, re.DOTALL | re.IGNORECASE)
     if m:
         return m.group(1).strip()
     start = txt.find("{")
@@ -195,7 +296,11 @@ def resolve_provider(context: Any, provider_id: str = "", umo: str = "") -> Any:
             pass
     if hasattr(context, "get_using_provider"):
         try:
-            return context.get_using_provider(umo=umo) if umo else context.get_using_provider()
+            return (
+                context.get_using_provider(umo=umo)
+                if umo
+                else context.get_using_provider()
+            )
         except TypeError:
             try:
                 return context.get_using_provider()
@@ -237,7 +342,9 @@ async def generate_chat_digest(
     if links:
         transcript_lines.append("\n[同日收录链接]")
         for lk in links[:8]:
-            transcript_lines.append(f"- {lk.get('title', '')} | {lk.get('url', '')} | {lk.get('summary', '')}")
+            transcript_lines.append(
+                f"- {lk.get('title', '')} | {lk.get('url', '')} | {lk.get('summary', '')}"
+            )
 
     system_prompt = (
         "你是严谨的群聊记忆与会议纪要助手。只输出一个合法 JSON 对象，不要附加任何解释或 Markdown 外层文字。\n"
@@ -249,13 +356,13 @@ async def generate_chat_digest(
     )
     prompt = (
         f"请整理以下群聊记录（共 {len(messages)} 条，日期 {target_date or '近期'}）：\n"
-        f"<<<{boundary}>>>\n"
-        + "\n".join(transcript_lines)
-        + f"\n<<<END_{boundary}>>>"
+        f"<<<{boundary}>>>\n" + "\n".join(transcript_lines) + f"\n<<<END_{boundary}>>>"
     )
 
     try:
-        raw = await _call_provider_text(provider, system_prompt, prompt, timeout=timeout)
+        raw = await _call_provider_text(
+            provider, system_prompt, prompt, timeout=timeout
+        )
         parsed = json.loads(_strip_json_fence(raw))
         if not isinstance(parsed, dict) or not str(parsed.get("summary", "")).strip():
             return rule_fallback
@@ -263,7 +370,8 @@ async def generate_chat_digest(
             "date": target_date,
             "mode": "llm",
             "summary": str(parsed.get("summary", "")).strip()[:500],
-            "topics": _clean_str_list(parsed.get("topics"), 6) or rule_fallback["topics"],
+            "topics": _clean_str_list(parsed.get("topics"), 6)
+            or rule_fallback["topics"],
             "highlights": _clean_str_list(parsed.get("highlights"), 6),
             "decisions": _clean_str_list(parsed.get("decisions"), 6),
             "todos": _clean_str_list(parsed.get("todos"), 6),
@@ -311,7 +419,9 @@ async def summarize_webpage(
         f"<<<END_{boundary}>>>"
     )
     try:
-        ans = await _call_provider_text(provider, system_prompt, prompt, timeout=timeout)
+        ans = await _call_provider_text(
+            provider, system_prompt, prompt, timeout=timeout
+        )
         return ans[:240] if ans else fallback
     except Exception:
         return fallback

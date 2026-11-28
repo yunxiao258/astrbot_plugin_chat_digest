@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """安全网页抓取、HTML 正文抽取、RSS/Atom 解析与群聊 URL 识别（内置代理与 SSRF 防护）。"""
 
 from __future__ import annotations
@@ -13,14 +12,37 @@ from html.parser import HTMLParser
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
-import requests
+import httpx
 
 URL_REGEX = re.compile(r"https?://[^\s<>\"'\]\)}，。；！？、]+", re.IGNORECASE)
 
 SKIP_MEDIA_EXTENSIONS = (
-    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".ico", ".svg",
-    ".mp4", ".webm", ".avi", ".mov", ".mkv", ".mp3", ".wav", ".ogg", ".amr",
-    ".zip", ".rar", ".7z", ".tar", ".gz", ".exe", ".dmg", ".apk", ".pdf",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".bmp",
+    ".ico",
+    ".svg",
+    ".mp4",
+    ".webm",
+    ".avi",
+    ".mov",
+    ".mkv",
+    ".mp3",
+    ".wav",
+    ".ogg",
+    ".amr",
+    ".zip",
+    ".rar",
+    ".7z",
+    ".tar",
+    ".gz",
+    ".exe",
+    ".dmg",
+    ".apk",
+    ".pdf",
 )
 
 DEFAULT_HEADERS = {
@@ -113,7 +135,11 @@ def validate_url(
         raise UnsafeURLError("链接缺少有效主机名")
 
     if not allow_private:
-        if host in ("localhost", "localhost.localdomain") or host.endswith(".local") or host.endswith(".internal"):
+        if (
+            host in ("localhost", "localhost.localdomain")
+            or host.endswith(".local")
+            or host.endswith(".internal")
+        ):
             raise UnsafeURLError(f"已拦截本地/内网域名：{host}")
         # 若 host 本身就是 IP 字面量，直接判定（注意不要把 UnsafeURLError 包进 except ValueError）
         host_ip = _parse_ip(host)
@@ -124,7 +150,11 @@ def validate_url(
         # 域名解析校验，防止 DNS 指向内网地址
         resolve_fn = resolver or socket.getaddrinfo
         try:
-            infos = resolve_fn(host, parsed.port or (443 if parsed.scheme == "https" else 80), type=socket.SOCK_STREAM)
+            infos = resolve_fn(
+                host,
+                parsed.port or (443 if parsed.scheme == "https" else 80),
+                type=socket.SOCK_STREAM,
+            )
         except OSError as exc:
             raise UnsafeURLError(f"域名解析失败（{host}）：{exc}") from exc
         for info in infos:
@@ -141,8 +171,29 @@ def validate_url(
 class _HtmlExtractor(HTMLParser):
     """基于标准库的轻量 HTML 标题/描述/正文提取器。"""
 
-    _SKIP_TAGS = {"script", "style", "noscript", "svg", "iframe", "nav", "footer", "header"}
-    _BLOCK_TAGS = {"p", "div", "article", "section", "li", "h1", "h2", "h3", "h4", "br", "tr"}
+    _SKIP_TAGS = {
+        "script",
+        "style",
+        "noscript",
+        "svg",
+        "iframe",
+        "nav",
+        "footer",
+        "header",
+    }
+    _BLOCK_TAGS = {
+        "p",
+        "div",
+        "article",
+        "section",
+        "li",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "br",
+        "tr",
+    }
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -259,7 +310,14 @@ def parse_rss_xml(xml_text: str, max_items: int = 5) -> tuple[str, list[RssItem]
                     elif sname in ("published", "updated") and sub.text and not pub:
                         pub = sub.text.strip()
                 if title or link:
-                    items.append(RssItem(title=title or link, link=link, summary=summary[:280], published=pub[:32]))
+                    items.append(
+                        RssItem(
+                            title=title or link,
+                            link=link,
+                            summary=summary[:280],
+                            published=pub[:32],
+                        )
+                    )
                     if len(items) >= max_items:
                         break
     else:
@@ -282,12 +340,21 @@ def parse_rss_xml(xml_text: str, max_items: int = 5) -> tuple[str, list[RssItem]
                         title = _strip_tags(sub.text)
                     elif sname == "link" and sub.text:
                         link = sub.text.strip()
-                    elif sname in ("description", "encoded") and sub.text and not summary:
+                    elif (
+                        sname in ("description", "encoded") and sub.text and not summary
+                    ):
                         summary = _strip_tags(sub.text)
                     elif sname in ("pubdate", "date") and sub.text and not pub:
                         pub = sub.text.strip()
                 if title or link:
-                    items.append(RssItem(title=title or link, link=link, summary=summary[:280], published=pub[:32]))
+                    items.append(
+                        RssItem(
+                            title=title or link,
+                            link=link,
+                            summary=summary[:280],
+                            published=pub[:32],
+                        )
+                    )
                     if len(items) >= max_items:
                         break
     return feed_title[:120], items
@@ -302,7 +369,7 @@ class WebFetcher:
         timeout: int = 15,
         max_bytes: int = 524288,
         allow_private: bool = False,
-        session: requests.Session | None = None,
+        session: Any | None = None,
         resolver: Any = None,
     ) -> None:
         self.proxy = (proxy or "").strip()
@@ -310,29 +377,58 @@ class WebFetcher:
         self.max_bytes = max(4096, int(max_bytes))
         self.allow_private = bool(allow_private)
         self.resolver = resolver
-        self.session = session or requests.Session()
-        self.session.trust_env = True
-        if self.proxy:
-            self.session.proxies = {"http": self.proxy, "https": self.proxy}
+        if session is not None:
+            self.session = session
+            if hasattr(self.session, "trust_env"):
+                self.session.trust_env = True
+            if self.proxy and hasattr(self.session, "proxies"):
+                self.session.proxies = {"http": self.proxy, "https": self.proxy}
+        else:
+            self.session = httpx.Client(
+                proxy=self.proxy or None,
+                trust_env=True,
+                follow_redirects=False,
+                timeout=self.timeout,
+            )
 
     def fetch_raw(self, url: str, max_redirects: int = 5) -> tuple[str, str, str]:
         """安全抓取 URL，返回 (最终 URL, content_type, 解码后的文本)。"""
-        current_url = validate_url(url, allow_private=self.allow_private, resolver=self.resolver)
+        current_url = validate_url(
+            url, allow_private=self.allow_private, resolver=self.resolver
+        )
         for _ in range(max_redirects + 1):
-            resp = self.session.get(
-                current_url,
-                headers=DEFAULT_HEADERS,
-                timeout=self.timeout,
-                allow_redirects=False,
-                stream=True,
-            )
+            if hasattr(self.session, "stream"):
+                stream_ctx = self.session.stream(
+                    "GET",
+                    current_url,
+                    headers=DEFAULT_HEADERS,
+                    timeout=self.timeout,
+                    follow_redirects=False,
+                )
+                resp = stream_ctx.__enter__()
+
+                def close_fn():
+                    stream_ctx.__exit__(None, None, None)
+            else:
+                resp = self.session.get(
+                    current_url,
+                    headers=DEFAULT_HEADERS,
+                    timeout=self.timeout,
+                    allow_redirects=False,
+                    stream=True,
+                )
+                close_fn = resp.close
             try:
                 if resp.status_code in (301, 302, 303, 307, 308):
                     location = resp.headers.get("Location", "").strip()
                     if not location:
                         raise RuntimeError(f"HTTP {resp.status_code} 缺少重定向目标")
                     next_url = urljoin(current_url, location)
-                    current_url = validate_url(next_url, allow_private=self.allow_private, resolver=self.resolver)
+                    current_url = validate_url(
+                        next_url,
+                        allow_private=self.allow_private,
+                        resolver=self.resolver,
+                    )
                     continue
 
                 if resp.status_code >= 400:
@@ -341,7 +437,12 @@ class WebFetcher:
                 ctype = (resp.headers.get("Content-Type") or "").lower()
                 chunks: list[bytes] = []
                 total = 0
-                for chunk in resp.iter_content(chunk_size=16384):
+                iterator = (
+                    resp.iter_bytes(chunk_size=16384)
+                    if hasattr(resp, "iter_bytes")
+                    else resp.iter_content(chunk_size=16384)
+                )
+                for chunk in iterator:
                     if not chunk:
                         continue
                     remain = self.max_bytes - total
@@ -350,7 +451,7 @@ class WebFetcher:
                     chunks.append(chunk[:remain])
                     total += min(len(chunk), remain)
                 raw_bytes = b"".join(chunks)
-                enc = resp.encoding
+                enc = getattr(resp, "encoding", None)
                 if not enc or enc.lower() == "iso-8859-1":
                     enc = getattr(resp, "apparent_encoding", None) or "utf-8"
                 try:
@@ -359,12 +460,16 @@ class WebFetcher:
                     text = raw_bytes.decode("utf-8", errors="replace")
                 return current_url, ctype, text
             finally:
-                resp.close()
+                close_fn()
         raise RuntimeError("重定向次数过多")
 
     def fetch_page(self, url: str) -> PageContent:
         final_url, ctype, text = self.fetch_raw(url)
-        if "html" in ctype or "<html" in text[:400].lower() or "<title" in text[:1000].lower():
+        if (
+            "html" in ctype
+            or "<html" in text[:400].lower()
+            or "<title" in text[:1000].lower()
+        ):
             page = parse_html_content(final_url, text)
             page.content_type = ctype
             return page
