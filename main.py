@@ -13,12 +13,7 @@ from astrbot.api import AstrBotConfig, logger
 from astrbot.api.all import MessageChain
 from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.message_components import File, Image, Plain
-from astrbot.api.star import Context, Star, register
-
-try:
-    from astrbot.core.utils.astrbot_path import get_astrbot_data_path
-except Exception:  # pragma: no cover
-    get_astrbot_data_path = None
+from astrbot.api.star import Context, Star, StarTools, register
 
 from .card_renderer import render_digest_card
 try:
@@ -35,7 +30,7 @@ PLUGIN_DESC = (
     "群聊/私聊记忆与智能摘要助手：LLM 摘要（自动降级本地规则）、精华收藏、决议/待办追踪、"
     "网页链接静默收录与摘要、RSS 订阅汇总、每日定时日报、Markdown/JSON 导入导出与摘要长图"
 )
-PLUGIN_VERSION = "1.1.1"
+PLUGIN_VERSION = "1.2.0"
 PLUGIN_REPO = "https://github.com/yunxiao258/astrbot_plugin_chat_digest"
 
 _CMD_PREFIX_RE = re.compile(r"^[\\/／]?\s*(?:摘要|digest|纪要)\b\s*(.*)$", re.IGNORECASE | re.S)
@@ -119,8 +114,11 @@ class ChatDigestPlugin(Star):
         if data_dir:
             self.data_dir = os.path.abspath(data_dir)
         else:
-            base = get_astrbot_data_path() if callable(get_astrbot_data_path) else os.path.dirname(os.path.abspath(__file__))
-            self.data_dir = os.path.join(base, "plugin_data", PLUGIN_NAME)
+            try:
+                self.data_dir = os.path.abspath(str(StarTools.get_data_dir(PLUGIN_NAME)))
+            except Exception:
+                base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                self.data_dir = os.path.join(base, "plugin_data", PLUGIN_NAME)
         os.makedirs(self.data_dir, exist_ok=True)
 
         self.store = DigestStore(

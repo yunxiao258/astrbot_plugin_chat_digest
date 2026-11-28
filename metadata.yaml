@@ -1,5 +1,6 @@
 name: astrbot_plugin_chat_digest
 display_name: 群聊记忆与摘要助手
+short_desc: 群聊与私聊记忆沉淀、AI 摘要、全文检索与长图日报
 desc: 群聊/私聊记忆与智能摘要助手：LLM 摘要（自动降级本地规则）、精华收藏、决议/待办追踪、网页链接静默收录与摘要、RSS 订阅汇总、每日定时日报、Markdown/JSON 导入导出与 Pillow 摘要长图
 help: |
   统一入口：/摘要（别名 /digest、/纪要）
@@ -13,6 +14,7 @@ help: |
   - /摘要 订阅 [on|off|状态]：开关每日定时日报推送（管理员）
   - /摘要 导出 [md|json|card] / 导入 <JSON>：导出档案/摘要长图或导入恢复（管理员）
   - /摘要 状态 / 清空 确认 / 帮助：查看运行状态、清空会话数据或查看完整帮助
-version: 1.1.1
+version: 1.2.0
 author: 云晓
 repo: https://github.com/yunxiao258/astrbot_plugin_chat_digest
+astrbot_version: ">=4.0.0"

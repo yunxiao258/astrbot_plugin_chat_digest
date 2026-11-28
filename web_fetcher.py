@@ -230,6 +230,8 @@ def parse_rss_xml(xml_text: str, max_items: int = 5) -> tuple[str, list[RssItem]
     cleaned = (xml_text or "").strip()
     if not cleaned:
         return "", []
+    if "<!entity" in cleaned.lower():
+        raise ValueError("拒绝包含 XML 实体声明（<!ENTITY）的不安全内容")
     root = ET.fromstring(cleaned)
     root_name = _local_name(root.tag)
     feed_title = ""
